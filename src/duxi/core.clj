@@ -27,7 +27,7 @@
 
 #_(def conduced? (complement unconduced?))
 
-(defn conduce
+(defn conduct
   "Simples"
   [rfr coll]
   (loop [rfr rfr]
@@ -41,8 +41,6 @@
   (fn [coll]
     rf))
 
-;; (conduce (initializing +) (range 10))
-
 (defn conj
   [coll]
   (fn
@@ -50,7 +48,8 @@
     ([acc x]
      (clojure.core/conj acc x))
     ([acc]
-     (if (list? coll)
+     (println (type acc))
+     (if (list? acc)
        (reverse acc)
        acc))))
 
@@ -91,9 +90,10 @@
 (def stateful-recipe
   (with-xform conj (take 2)))
 
-(conduce recipe '(1 2 3 4))
-(conduce stateful-recipe '(1 2 3 4 5))
-(conduce stateful-recipe '(1 2 3 4 5))
+(conduct recipe '(1 2 3 4))
+
+(conduct stateful-recipe '(1 2 3 4 5))
+(conduct stateful-recipe '(1 2 3 4 5))
 
 (defn connector
   [a b]
@@ -107,8 +107,36 @@
   [& rfrs]
   (reduce connector rfrs))
 
-(def duct-recipe
+(def normalise-recipe
   (duct (initializing minmax)
         #(with-xform conj (normalise %))))
 
-(conduce duct-recipe (vec (range 10)))
+(conduct normalise-recipe (range 11))
+
+(conduct normalise-recipe (vec (range 11)))
+
+;;;;;;; API IDEAS 
+;; 
+;; (defmacro letduct
+;;   [specs & body]
+;;   ...)
+;;
+;; (defmacro loopduct
+;;   [specs & body]
+;;    ...)
+;; 
+;; (def normaliser
+;;   (letduct [min-max (initializing minmax)
+;;             sd (initializing kixi/standard-deviation)
+;;             normalized (with-xform conj (normalise min-max))]
+;;      normalized))
+;; 
+;; (def normalise (conduct normaliser))
+;; 
+;; (def gradient-descent
+;;   (loopduct [coefs [0.0 1 2.0]]
+;;     (letduct [new-coefs (initializing improve-coefs)]
+;;       (if-not (conveged? new-coefs coefs)
+;;         (recur new-coefs)
+;;         new-coefs))))
+;; 
