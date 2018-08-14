@@ -1,6 +1,6 @@
 (ns duxi.core)
 
-(defn ducts
+#_(defn ducts
   "Chains a duct with a sequence of duct generators"
   [duct & ducts]
   (let [rf' (reduce
@@ -13,19 +13,33 @@
              (reverse ducts))]
     (update duct :rf (fn [rf] (completing rf (fn [acc] (rf' (rf acc))))))))
 
-(defrecord Conduct [xform rf])
+#_(defrecord Conduct [xform rf])
 
-(defn unconduced? [x]
+#_(defn unconduced? [x]
   (instance? Conduct x))
 
-(def conduced? (complement unconduced?))
+#_(def conduced? (complement unconduced?))
 
 (defn conduce
-  [{:keys [xform rf]} data]
-  (let [xform (or xform identity)]
-    (if rf
-      (let [res (transduce xform rf data)]
-        (if (conduced? res)
-          res
-          (recur res data)))
-      (sequence xform data))))
+  "Simples"
+  [rfr coll]
+  (transduce identity (rfr coll) coll))
+
+(defn initializing
+  [rf]
+  (fn [coll]
+    rf))
+
+;; (conduce (initializing +) (range 10))
+
+(defn conj
+  [coll]
+  (fn
+    ([] (empty coll))
+    ([acc x]
+     (clojure.core/conj acc x))
+    ([acc]
+     (if (list? coll)
+       (reverse acc)
+       acc))))
+
