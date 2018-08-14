@@ -43,3 +43,22 @@
        (reverse acc)
        acc))))
 
+(defn with-xform
+  "We can use xforms to augment our reducing function recipes"
+  [rfr xform]
+  (fn [coll]
+    (xform (rfr coll))))
+
+(def recipe
+  (with-xform conj
+    (comp (map inc)
+          (filter even?))))
+
+
+(def stateful-recipe
+  (with-xform conj (take 2)))
+
+(conduce recipe '(1 2 3 4))
+(conduce stateful-recipe '(1 2 3 4 5))
+(conduce stateful-recipe '(1 2 3 4 5))
+
