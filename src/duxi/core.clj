@@ -1,4 +1,8 @@
-(ns duxi.core)
+(ns duxi.core
+  (:require [clojure.algo.monads :as monad :refer [defmonad domonad]]
+            [duxi.rfr :refer [>seq]]
+            [kixi.stats.core :as kixi]
+            [redux.core :as redux]))
 
 (defprotocol IDuct
   (duct [this] "Returns the Duct"))
@@ -36,22 +40,10 @@
         (recur (duct res))
         res))))
 
-(defn initializing
+(defn rf
   [rf]
   (fn [coll]
     rf))
-
-(defn conj
-  [coll]
-  (fn
-    ([] (empty coll))
-    ([acc x]
-     (clojure.core/conj acc x))
-    ([acc]
-     (println (type acc))
-     (if (list? acc)
-       (reverse acc)
-       acc))))
 
 
 (def minmax
@@ -75,20 +67,20 @@
        (rf acc)))))
 
 
-(defn with-xform
+(defn xform
   "We can use xforms to augment our reducing function recipes"
-  [rfr xform]
+  [xf rfr]
   (fn [coll]
-    (xform (rfr coll))))
+    (xf (rfr coll))))
 
 (def recipe
-  (with-xform conj
-    (comp (map inc)
-          (filter even?))))
+  (xform (comp (map inc)
+               (filter even?))
+         >seq))
 
 
 (def stateful-recipe
-  (with-xform conj (take 2)))
+  (xform (take 2) >seq))
 
 (conduct recipe '(1 2 3 4))
 
@@ -108,12 +100,62 @@
   (reduce connector rfrs))
 
 (def normalise-recipe
-  (duct (initializing minmax)
-        #(with-xform conj (normalise %))))
+  (duct (rf minmax)
+        #(xform (normalise %) >seq)))
 
 (conduct normalise-recipe (range 11))
 
 (conduct normalise-recipe (vec (range 11)))
+
+(domonad monad/identity-m
+         [a 1
+          b 2]
+         (+ a b))
+
+(defn post-complete
+  [rf f]
+  (completing rf #(f (rf %))))
+
+(defmonad duct-m
+  [m-bind (fn [mv f]
+            (fn [coll]
+              (post-complete (mv coll)
+                             (fn [acc]
+                               (Duct. (f acc))))))
+   m-result (fn [v]
+              (fn [coll]
+                (fn
+                  ([] nil)
+                  ([_ _] (reduced v))
+                  ([acc] acc))))])
+
+(defmacro letduct
+  [specs & body]
+  `(domonad duct-m ~specs ~@body))
+
+
+(require '[duxi.core :refer [letduct conduct]]
+         '[kixi.stats.core :as kixi]
+         '[redux.core :as redux])
+
+(defn normalize [mean sd]
+  (fn [x]
+    (/ (- x mean) sd)))
+
+(def duct
+  "Returns a normalising duct"
+  (letduct [;; First calculate the mean and standard deviation of inputs
+            [mean sd] (rf (redux/juxt kixi/mean kixi/standard-deviation))
+            ;; Then output the normalized inputs to a seq
+            res (xform (map (normalize mean sd)) >seq)]
+    res))
+
+;; Actually execute the duct:
+(conduct duct [2 4 4 4 5 5 5 7 9])
+;;=> [-1.5 -0.5 -0.5 -0.5 0.0 0.0 0.0 1.0 2.0]
+
+
+
 
 ;;;;;;; API IDEAS 
 ;; 
@@ -126,16 +168,16 @@
 ;;    ...)
 ;; 
 ;; (def normaliser
-;;   (letduct [min-max (initializing minmax)
-;;             sd (initializing kixi/standard-deviation)
-;;             normalized (with-xform conj (normalise min-max))]
+;;   (letduct [min-max (rf minmax)
+;;             sd (rf kixi/standard-deviation)
+;;             normalized (xform conj (normalise min-max))]
 ;;      normalized))
 ;; 
 ;; (def normalise (conduct normaliser))
 ;; 
 ;; (def gradient-descent
 ;;   (loopduct [coefs [0.0 1 2.0]]
-;;     (letduct [new-coefs (initializing improve-coefs)]
+;;     (letduct [new-coefs (rf improve-coefs)]
 ;;       (if-not (conveged? new-coefs coefs)
 ;;         (recur new-coefs)
 ;;         new-coefs))))

@@ -31,24 +31,42 @@ With duxi, we can define an alternative conj which preserves input and output ty
 ```clojure
 ;; List in, list out:
 
-(conduce duxi.rfr/conj '(1 2 3 4))
+(conduce duxi.rfr/>seq '(1 2 3 4))
 
 ;;=> (1 2 3 4)
+
+;; or vector in, vector out:
+
+(conduce duxi.rfr/>seq [1 2 3 4])
+
+;;=> [1 2 3 4]
 ```
 
-## Usage
-
-Conducts reducing function recipes. `conduce` executes the Conduct. Once executed, a Conduct may return another Conduct. In this way Conducts can specify self-contained recipes for iterative transductions.
-
-For example, binning and normalizing data are difficult or impossible to achieve in a single pass with `transduce`. With `conduce`, however, they can be expressed as simple operations:
+In addition, Duxi defines a `letduct` macro which simplifies the process of specifying iterative algorithms:
 
 ```clojure
-(conduce (bin 2) [1 4 3 2 5 6])
-;;=> (0 1 0 0 1 1)
+(require '[duxi.core :refer [letduct conduct xform rf]]
+	 '[duxi.rfr :refer [>seq]]
+         '[kixi.stats.core :as kixi]
+         '[redux.core :as redux])
 
-(conduce normalize [0 5 10])
-;;=> (-1.0 0.0 1.0)
-  ```
+(defn normalize [mean sd]
+  (fn [x]
+    (/ (- x mean) sd)))
+
+(def duct
+  "Returns a normalising duct"
+  (letduct [;; First calculate the mean and standard deviation of inputs
+            [mean sd] (rf (redux/juxt kixi/mean kixi/standard-deviation))
+            ;; Then output the normalized inputs to a seq
+            res (xform (map (normalize mean sd)) >seq)]
+    res))
+
+;; Actually execute the duct:
+
+(conduct duct [2 4 4 4 5 5 5 7 9])
+;;=> [-1.5 -0.5 -0.5 -0.5 0.0 0.0 0.0 1.0 2.0]
+```
 
 ## License
 
