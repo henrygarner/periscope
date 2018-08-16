@@ -27,17 +27,17 @@
          :else (clojure.core/transduce xform f init coll))))
 
 (defn conduct
-  "Simples"
+  "Like clojure.core/trampoline, but for reductors"
   [reductor coll]
   (loop [rdtr reductor]
     (let [result (transduce clojure.core/identity (rdtr coll) coll)]
       (if (unfinished? result)
         (recur @result)
         result))))
-
+into
 (defn reductor
   "Transform a reducing function into a reductor.
-  Optionally wrap in a transducer."
+  A transducer may be supplied"
   ([rf]
    (fn [coll] rf))
   ([xform rf]
@@ -45,31 +45,31 @@
      (xform rf))))
 
 (defn xform
-  "Wraps a reductor in a transducer"
+  "Returns a modified reductor with the transducer applied"
   [xf reductor]
   (fn [coll]
     (xf (reductor coll))))
 
 (defn constant
-  "A reducing function which returns a constant value"
+  "A reducing function which returns a constant value.
+  Must be used with this namespace's `transduce`"
   [val]
   (completing
    (fn
      ([] (reduced val)))))
 
 (defn identity
-  "A reductor which returns a constant value"
+  "A reductor which returns a constant value."
   [val]
   (fn [coll] (constant val)))
 
 (defn post-complete
-  "Chain a completing function after rf completion"
+  "Chain a completing function after rf"
   [rf f]
   (completing rf #(f (rf %))))
 
 (defn post-reduce
-  "Chain a function accepting the return value of a reductor
-  to execute after the reductor has finished."
+  "Chain a completing function after reductor"
   [reductor f]
   (fn [coll]
     (post-complete (reductor coll) f)))
