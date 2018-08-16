@@ -2,115 +2,52 @@
   (:require [clojure.algo.monads :as monad :refer [defmonad domonad]]
             [duxi.rfr :refer [>seq]]
             [kixi.stats.core :as kixi]
-            [redux.core :as redux]))
+            [redux.core :as redux])
+  (:refer-clojure :exclude [juxt identity]))
 
 (defprotocol IDuct
-  (duct [this] "Returns the Duct"))
+  (unduct [this] "Returns the Duct"))
 
 (deftype Duct [thing]
   IDuct
-  (duct [this] thing))
-
-#_(defn ducts
-  "Chains a duct with a sequence of duct generators"
-  [duct & ducts]
-  (let [rf' (reduce
-             (fn [a b]
-               (fn [acc]
-                 (let [duct (b acc)]
-                   (update duct :rf #(completing %
-                                                 (fn [acc]
-                                                   (a (% acc))))))))
-             (reverse ducts))]
-    (update duct :rf (fn [rf] (completing rf (fn [acc] (rf' (rf acc))))))))
-
-#_(defrecord Conduct [xform rf])
-
-#_(defn unconduced? [x]
-  (instance? Conduct x))
-
-#_(def conduced? (complement unconduced?))
+  (unduct [this] thing))
 
 (defn conduct
   "Simples"
   [rfr coll]
   (loop [rfr rfr]
-    (let [res (transduce identity (rfr coll) coll)]
+    (let [res (transduce clojure.core/identity (rfr coll) coll)]
       (if (satisfies? IDuct res)
-        (recur (duct res))
+        (recur (unduct res))
         res))))
 
-(defn rf
-  [rf]
-  (fn [coll]
-    rf))
-
-
-(def minmax
-  (fn
-    ([] [nil nil])
-    ([[min max] x]
-     (vector (clojure.core/min (or min x) x)
-             (clojure.core/max (or max x) x)))
-    ([acc] acc)))
-
-(defn normalise
-  [[min max]]
-  (fn [rf]
-    (fn
-      ([] (rf))
-      ([acc x]
-       (rf acc (double
-                (/ (- x min)
-                   (- max min)))))
-      ([acc]
-       (rf acc)))))
-
+(defn reductor
+  "Transform a reducing function into a reductor.
+  Optionally wrap in a transducer."
+  ([rf]
+   (fn [coll] rf))
+  ([xform rf]
+   (fn [coll]
+     (xform rf))))
 
 (defn xform
-  "We can use xforms to augment our reducing function recipes"
-  [xf rfr]
+  "Wraps a reductor in a transducer"
+  [xf rdtr]
   (fn [coll]
-    (xf (rfr coll))))
+    (xf (rdtr coll))))
 
-(def recipe
-  (xform (comp (map inc)
-               (filter even?))
-         >seq))
+(defn constant
+  "A reducing function which returns a constant value"
+  [val]
+  (completing
+   (fn
+     ([] nil)
+     ([_ _] (reduced val)))))
 
-
-(def stateful-recipe
-  (xform (take 2) >seq))
-
-(conduct recipe '(1 2 3 4))
-
-(conduct stateful-recipe '(1 2 3 4 5))
-(conduct stateful-recipe '(1 2 3 4 5))
-
-(defn connector
-  [a b]
-  (fn [coll]
-    (let [rf (a coll)]
-      (completing rf
-                  (fn [acc]
-                    (Duct. (b (rf acc))))))))
-
-(defn duct
-  [& rfrs]
-  (reduce connector rfrs))
-
-(def normalise-recipe
-  (duct (rf minmax)
-        #(xform (normalise %) >seq)))
-
-(conduct normalise-recipe (range 11))
-
-(conduct normalise-recipe (vec (range 11)))
-
-(domonad monad/identity-m
-         [a 1
-          b 2]
-         (+ a b))
+(defn identity
+  "A reductor which returns a constant value"
+  [val]
+  (fn [coll] (constant val)))
 
 (defn post-complete
   [rf f]
@@ -122,63 +59,64 @@
               (post-complete (mv coll)
                              (fn [acc]
                                (Duct. (f acc))))))
-   m-result (fn [v]
-              (fn [coll]
-                (fn
-                  ([] nil)
-                  ([_ _] (reduced v))
-                  ([acc] acc))))])
+   m-result identity])
 
 (defmacro letduct
   [specs & body]
   `(domonad duct-m ~specs ~@body))
 
+(defmacro defduct
+  [name docstring specs & body]
+  `(def ~name
+     (letduct ~specs ~@body)))
 
-(require '[duxi.core :refer [letduct conduct]]
-         '[kixi.stats.core :as kixi]
-         '[redux.core :as redux])
+(defn duct?
+  [duct]
+  (satisfies? IDuct duct))
 
-(defn normalize [mean sd]
-  (fn [x]
-    (/ (- x mean) sd)))
+(defn deduct
+  [de]
+  (cond-> de
+    (duct? de) unduct))
 
-(def duct
+(defn juxt
+  "A juxt which works for reductors"
+  [& rfrs]
+  (fn [coll]
+    (post-complete (apply redux/juxt (map #(% coll) rfrs))
+                   (fn [accs]
+                     (let [continue? (some duct? accs)
+                           rfrs (mapv (fn [acc]
+                                        (if (and continue? (not (duct? acc)))
+                                          (identity acc)
+                                          (deduct acc)))
+                                      accs)]
+                       (if continue?
+                         (Duct. (apply juxt rfrs))
+                         rfrs))))))
+
+
+;; Example
+
+(def sum
+  "A summing reductor"
+  (reductor +))
+
+(conduct sum [2 4 4 4 5 5 5 7 9])
+
+;;=> 45
+
+(defduct normalise
   "Returns a normalising duct"
-  (letduct [;; First calculate the mean and standard deviation of inputs
-            [mean sd] (rf (redux/juxt kixi/mean kixi/standard-deviation))
-            ;; Then output the normalized inputs to a seq
-            res (xform (map (normalize mean sd)) >seq)]
-    res))
+  [[mean sd] (reductor (redux/juxt kixi/mean kixi/standard-deviation))  
+   normalised (xform (map #(/ (- % mean) sd)) >seq)]
+  normalised)
 
-;; Actually execute the duct:
-(conduct duct [2 4 4 4 5 5 5 7 9])
+(conduct normalise [2 4 4 4 5 5 5 7 9])
+
 ;;=> [-1.5 -0.5 -0.5 -0.5 0.0 0.0 0.0 1.0 2.0]
 
 
+(conduct (juxt sum normalise) [2 4 4 4 5 5 5 7 9])
 
-
-;;;;;;; API IDEAS 
-;; 
-;; (defmacro letduct
-;;   [specs & body]
-;;   ...)
-;;
-;; (defmacro loopduct
-;;   [specs & body]
-;;    ...)
-;; 
-;; (def normaliser
-;;   (letduct [min-max (rf minmax)
-;;             sd (rf kixi/standard-deviation)
-;;             normalized (xform conj (normalise min-max))]
-;;      normalized))
-;; 
-;; (def normalise (conduct normaliser))
-;; 
-;; (def gradient-descent
-;;   (loopduct [coefs [0.0 1 2.0]]
-;;     (letduct [new-coefs (rf improve-coefs)]
-;;       (if-not (conveged? new-coefs coefs)
-;;         (recur new-coefs)
-;;         new-coefs))))
-;; 
+;;=> [45 [-1.5 -0.5 -0.5 -0.5 0.0 0.0 0.0 1.0 2.0]]
