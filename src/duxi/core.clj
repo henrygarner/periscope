@@ -1,132 +1,42 @@
 (ns duxi.core
   (:require [clojure.algo.monads :as monad :refer [defmonad domonad]]
-            [duxi.rfr :refer [>seq]]
-            [kixi.stats.core :as kixi]
-            [redux.core :as redux])
-  (:refer-clojure :exclude [juxt identity transduce]))
+            [duxi.ductors :refer [link]]))
 
-(deftype Unfinished [thing]
-  clojure.lang.IDeref
-  (deref [this] thing))
+(defn T
+  "Variadic Thrush combinator"
+  [& args]
+  (fn [f]
+    (apply f args)))
 
-(defn unfinished?
-  "Is there more to do?"
-  [x]
-  (instance? Unfinished x))
-
-(defn unfinished
-  "Mark a return value as a pending computation"
-  [x]
-  (Unfinished. x))
-
-(defn transduce
-  "Like clojure.core/transduce, but will short-cut a reduced? init value"
-  ([xform f coll] (transduce xform f (f) coll))
-  ([xform f init coll]
-   (cond (reduced? init) (unreduced init)
-         :else (clojure.core/transduce xform f init coll))))
-
-(defn conduct
-  "Like clojure.core/trampoline, but for reductors"
-  [reductor coll]
-  (loop [rdtr reductor]
-    (let [result (transduce clojure.core/identity (rdtr coll) coll)]
-      (if (unfinished? result)
-        (recur @result)
-        result))))
-into
-(defn reductor
-  "Transform a reducing function into a reductor.
-  A transducer may be supplied"
-  ([rf]
-   (fn [coll] rf))
+(defn duct
   ([xform rf]
-   (fn [coll]
-     (xform rf))))
+   (T xform rf))
+  ([rf]
+   (T identity rf)))
 
-(defn xform
-  "Returns a modified reductor with the transducer applied"
-  [xf reductor]
-  (fn [coll]
-    (xf (reductor coll))))
-
-(defn constant
-  "A reducing function which returns a constant value.
-  Must be used with this namespace's `transduce`"
-  [val]
-  (completing
-   (fn
-     ([] (reduced val)))))
-
-(defn identity
-  "A reductor which returns a constant value."
-  [val]
-  (fn [coll] (constant val)))
-
-(defn post-complete
-  "Chain a completing function after rf"
-  [rf f]
-  (completing rf #(f (rf %))))
-
-(defn post-reduce
-  "Chain a completing function after reductor"
-  [reductor f]
-  (fn [coll]
-    (post-complete (reductor coll) f)))
-
-(defmonad duct-m
-  [m-bind (fn [mv f] (post-reduce mv (comp unfinished f)))
-   m-result identity])
+(defmonad iter-m
+  [m-bind (fn [duct f]
+            (fn [f']
+              ((f (duct f')) f')))
+   m-result (fn [v]
+              (fn [f']
+                v))])
 
 (defmacro letduct
-  "Create a reductor by chaining reductors together"
+  "Create a duct by binding ducts together"
   [specs & body]
-  `(domonad duct-m ~specs ~@body))
+  `(domonad iter-m ~specs ~@body))
 
-(defmacro defduct
-  "Define a reductor by optionally chaining previous reductor steps"
-  [name docstring specs & body]
-  `(def ~name
-     (letduct ~specs ~@body)))
+(defn deduce
+  ([duct f coll]
+   ((duct f) coll))
+  ([duct coll]
+   (deduce duct identity coll)))
 
-(defn juxt
-  "Takes a set of reductors and returns a reductor that is the
-  juxtaposition of those reductors. Returns a vector containing the
-  result of applying each reductor to the collection (left-to-right).
-  (conduct (juxt a b) coll) => [(conduct a coll) (conduct b coll)]"
-  [& reductors]
-  (fn [coll]
-    (post-complete (apply redux/juxt (map #(% coll) reductors))
-                   (fn [results]
-                     (if (some unfinished? results)
-                       (let [reductors (map (fn [result]
-                                              (if (unfinished? result)
-                                                (deref result)
-                                                (identity result)))
-                                            results)]
-                         (unfinished (apply juxt reductors)))
-                       results)))))
+(defn duct->>
+  [& ducts]
+  (apply comp (clojure.core/map link ducts)))
 
-;; Example
-
-(def sum
-  "A summing reductor"
-  (reductor +))
-
-(conduct sum [2 4 4 4 5 5 5 7 9])
-
-;;=> 45
-
-(defduct normalise
-  "Returns a normalising duct"
-  [[mean sd] (reductor (redux/juxt kixi/mean kixi/standard-deviation))  
-   normalised (xform (map #(/ (- % mean) sd)) >seq)]
-  normalised)
-
-(conduct normalise [2 4 4 4 5 5 5 7 9])
-
-;;=> [-1.5 -0.5 -0.5 -0.5 0.0 0.0 0.0 1.0 2.0]
-
-(conduct (juxt sum normalise) [2 4 4 4 5 5 5 7 9])
-
-;;=> [45 [-1.5 -0.5 -0.5 -0.5 0.0 0.0 0.0 1.0 2.0]]
+(defn duct->
+  [[f] & ducts]
+  (apply comp (clojure.core/map f ducts)))
