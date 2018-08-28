@@ -54,6 +54,13 @@
              (deduce d {:a [1 2 nil 3 nil]})))))
 
   (testing "append [:c :d] to every subsequence that has at least two even numbers"
-    (let [d (d/map (filter #(>= (count (filter even? %)) 2)) (duct conj))]
-      (is (= [[1 2 3 4 5 6 :c :d] [8 8 :c :d]]
+    (let [d (d/map #(>= (count (filter even? %)) 2) (duct conj))]
+      (is (= [[1 2 3 4 5 6 :c :d] [7 0 -1] [8 8 :c :d] []]
              (deduce d #(concat % [:c :d]) [[1 2 3 4 5 6] [7 0 -1] [8 8] []]))))))
+
+(deftest assemblies-can-target-their-execution
+  (testing "increment only numbers in even length arrays"
+    (let [d (comp (d/map #(even? (count %)) (duct conj))
+                  (d/map number? (duct conj)))]
+      (is (= [[1 false 2] [4 5] [6 nil] [7 8 9 10]]
+             (deduce d inc [[1 false 2] [3 4] [5 nil] [6 7 8 9]]))))))

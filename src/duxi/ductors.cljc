@@ -5,14 +5,21 @@
 (defn nest
   [xf]
   (fn nest*
-    ([xform duct]
+    ([pred? duct]
      (fn [f]
        (fn [coll]
-         (duct (fn [xform' rf] (transduce (comp xform (xf f) xform') rf coll))))))
+         (let [f' (fn [x] (if (pred? x) (f x) x))]
+          (duct (fn [xform rf] (transduce (comp (xf f') xform) rf coll)))))))
     ([duct]
-     (nest* identity duct))))
+     (nest* (constantly true) duct))))
 
 (defn link
+  [duct]
+  (fn [f]
+    (fn [coll]
+      (f (duct (fn [xform rf] (transduce xform rf coll)))))))
+
+(defn ductor
   [duct]
   (fn [f]
     (fn [coll]
@@ -27,3 +34,5 @@
 (def keys (nest xf/keys))
 
 (def vals (nest xf/vals))
+
+(def filter (nest clojure.core/filter))
