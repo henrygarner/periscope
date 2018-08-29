@@ -7,9 +7,9 @@
   (fn nest*
     ([pred? duct]
      (fn [f]
-       (fn [coll]
-         (let [f' (fn [x] (if (pred? x) (f x) x))]
-          (duct (fn [xform rf] (transduce (comp (xf f') xform) rf coll)))))))
+       (fn [bool coll]
+         (let [f' (fn [x] (f (and bool (pred? x)) x))]
+           (duct (fn [xform rf] (transduce (comp (xf f') xform) rf coll)))))))
     ([duct]
      (nest* (constantly true) duct))))
 
@@ -19,11 +19,11 @@
     (fn [coll]
       (f (duct (fn [xform rf] (transduce xform rf coll)))))))
 
-(defn ductor
+(defn make-ductor
   [duct]
   (fn [f]
-    (fn [coll]
-      (f (duct (fn [xform rf] (transduce xform rf coll)))))))
+    (fn [bool coll]
+      (f bool (duct (fn [xform rf] (transduce xform rf coll)))))))
 
 (def map (nest xf/map))
 

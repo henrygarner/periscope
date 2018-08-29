@@ -4,11 +4,6 @@
             [duxi.ductors :as d]
             [duxi.reducers :as r]))
 
-(deftest chained-ducts-execute-serially
-  (is (= 9 (deduce (duct->> (duct conj)
-                            (duct (map inc) +))
-                   [1 2 3]))))
-
 (deftest ducts-can-be-nested
   (is (= [9 18]
          (deduce (duct-> [d/map]
@@ -63,4 +58,12 @@
     (let [d (comp (d/map #(even? (count %)) (duct conj))
                   (d/map number? (duct conj)))]
       (is (= [[1 false 2] [4 5] [6 nil] [7 8 9 10]]
-             (deduce d inc [[1 false 2] [3 4] [5 nil] [6 7 8 9]]))))))
+             (deduce d inc [[1 false 2] [3 4] [5 nil] [6 7 8 9]])))))
+
+  (testing "predicates only affect whether bottom is applied"
+    (let [d (comp (d/map #(contains? % :a) (duct concat))
+                  (d/vals (duct concat))
+                  (d/map (duct conj)))]
+      (is (= [2 3 4 5 6 7 8 9 10 11 12 13]
+             (deduce d inc [{:a [1 2 3] :b [4 5 6]} {:c [8 9 10] :d [11 12 13]}]))))))
+

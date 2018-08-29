@@ -1,6 +1,6 @@
 (ns duxi.core
   (:require [clojure.algo.monads :as monad :refer [defmonad domonad]]
-            [duxi.ductors :refer [link]]))
+            [duxi.ductors :refer [make-ductor]]))
 
 (defn T
   "Variadic Thrush combinator"
@@ -27,16 +27,17 @@
   [specs & body]
   `(domonad iter-m ~specs ~@body))
 
+(defn conditionally
+  [f]
+  (fn [bool x]
+    (cond-> x bool f)))
+
 (defn deduce
   ([duct f coll]
-   ((duct f) coll))
+   ((duct (conditionally f)) true coll))
   ([duct coll]
    (deduce duct identity coll)))
 
-(defn duct->>
+(defn ductor
   [& ducts]
-  (apply comp (clojure.core/map link ducts)))
-
-(defn duct->
-  [[f] & ducts]
-  (apply comp (clojure.core/map f ducts)))
+  (apply comp (clojure.core/map make-ductor ducts)))
