@@ -29,8 +29,8 @@
 
 (defn conditionally
   [f]
-  (fn [bool x]
-    (cond-> x bool f)))
+  (fn [state x]
+    (cond-> x state f)))
 
 (defn deduce
   ([duct f coll]

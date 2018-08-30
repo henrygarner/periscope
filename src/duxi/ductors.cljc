@@ -1,29 +1,34 @@
 (ns duxi.ductors
   (:require [duxi.xforms :as xf])
-  (:refer-clojure :exclude [map keys vals]))
+  (:refer-clojure :exclude [filter map keys vals when]))
 
 (defn nest
   [xf]
   (fn nest*
-    ([pred? duct]
-     (fn [f]
-       (fn [bool coll]
-         (let [f' (fn [x] (f (and bool (pred? x)) x))]
-           (duct (fn [xform rf] (transduce (comp (xf f') xform) rf coll)))))))
     ([duct]
-     (nest* (constantly true) duct))))
+     (nest* identity duct))
+    ([xform' duct]
+     (fn [f]
+       (fn [state coll]
+         (duct (fn [xform rf] (transduce (comp xform' (xf (partial f state)) xform) rf coll))))))))
+
+(defn when
+  [pred?]
+  (fn [f]
+    (fn [state coll]
+      (f (and state (pred? coll)) coll))))
 
 (defn link
   [duct]
   (fn [f]
-    (fn [coll]
-      (f (duct (fn [xform rf] (transduce xform rf coll)))))))
+    (fn [state coll]
+      (f state (duct (fn [xform rf] (transduce xform rf coll)))))))
 
 (defn make-ductor
   [duct]
   (fn [f]
-    (fn [bool coll]
-      (f bool (duct (fn [xform rf] (transduce xform rf coll)))))))
+    (fn [state coll]
+      (f state (duct (fn [xform rf] (transduce xform rf coll)))))))
 
 (def map (nest xf/map))
 

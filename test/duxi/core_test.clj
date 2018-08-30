@@ -6,12 +6,6 @@
 
 (deftest ducts-can-be-nested
   (is (= [9 18]
-         (deduce (duct-> [d/map]
-                         (duct conj)
-                         (duct (map inc) +))
-                 [[1 2 3] [4 5 6]])))
-  
-  (is (= [9 18]
          (deduce (comp (d/map (duct conj))
                        (d/map (duct (map inc) +)))
                  [[1 2 3] [4 5 6]]))))
@@ -49,19 +43,23 @@
              (deduce d {:a [1 2 nil 3 nil]})))))
 
   (testing "append [:c :d] to every subsequence that has at least two even numbers"
-    (let [d (d/map #(>= (count (filter even? %)) 2) (duct conj))]
+    (let [d (comp (d/map (duct conj))
+                  (d/when #(>= (count (filter even? %)) 2)))]
       (is (= [[1 2 3 4 5 6 :c :d] [7 0 -1] [8 8 :c :d] []]
              (deduce d #(concat % [:c :d]) [[1 2 3 4 5 6] [7 0 -1] [8 8] []]))))))
 
 (deftest assemblies-can-target-their-execution
   (testing "increment only numbers in even length arrays"
-    (let [d (comp (d/map #(even? (count %)) (duct conj))
-                  (d/map number? (duct conj)))]
+    (let [d (comp (d/map (duct conj))
+                  (d/when #(even? (count %)))
+                  (d/map (duct conj))
+                  (d/when number?))]
       (is (= [[1 false 2] [4 5] [6 nil] [7 8 9 10]]
              (deduce d inc [[1 false 2] [3 4] [5 nil] [6 7 8 9]])))))
 
   (testing "predicates only affect whether bottom is applied"
-    (let [d (comp (d/map #(contains? % :a) (duct concat))
+    (let [d (comp (d/map (duct concat))
+                  (d/when #(contains? % :a))
                   (d/vals (duct concat))
                   (d/map (duct conj)))]
       (is (= [2 3 4 5 6 7 8 9 10 11 12 13]
