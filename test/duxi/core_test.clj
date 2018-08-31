@@ -42,6 +42,12 @@
       (is (= {:a [1 2 3]}
              (deduce d {:a [1 2 nil 3 nil]})))))
 
+  (testing "transducers can filter values before reduction"
+    (let [d (comp (d/map (remove keyword?) (duct conj))
+                  (d/map (duct +)))]
+      (is (= [6 15]
+             (deduce d [:a [1 2 3] :b [4 5 6]])))))
+
   (testing "append [:c :d] to every subsequence that has at least two even numbers"
     (let [d (comp (d/map (duct conj))
                   (d/when #(>= (count (filter even? %)) 2)))]
