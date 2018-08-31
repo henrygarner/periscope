@@ -1,5 +1,5 @@
-(ns duxi.ductors
-  (:require [duxi.xforms :as xf])
+(ns ductors.ductors
+  (:require [ductors.xforms :as xf])
   (:refer-clojure :exclude [filter map keys vals when]))
 
 (defn nest

@@ -1,4 +1,4 @@
-(ns duxi.xforms
+(ns ductors.xforms
   (:refer-clojure :exclude [assoc map keys vals]))
 
 (def map clojure.core/map)

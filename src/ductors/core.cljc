@@ -1,6 +1,6 @@
-(ns duxi.core
+(ns ductors.core
   (:require [clojure.algo.monads :as monad :refer [defmonad domonad]]
-            [duxi.ductors :refer [make-ductor]]))
+            [ductors.ductors :refer [make-ductor]]))
 
 (defn T
   "Variadic Thrush combinator"

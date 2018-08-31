@@ -1,4 +1,4 @@
-(ns duxi.reducers
+(ns ductors.reducers
   (:refer-clojure :exclude [assoc concat]))
 
 (def assoc

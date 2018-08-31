@@ -1,8 +1,8 @@
-(ns duxi.core-test
+(ns ductors.core-test
   (:require [clojure.test :refer :all]
-            [duxi.core :refer :all]
-            [duxi.ductors :as d]
-            [duxi.reducers :as r]))
+            [ductors.core :refer :all]
+            [ductors.ductors :as d]
+            [ductors.reducers :as r]))
 
 (deftest ducts-can-be-nested
   (is (= [9 18]
