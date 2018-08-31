@@ -1,5 +1,7 @@
 # Duxi
 
+[![CircleCI](https://circleci.com/gh/henrygarner/duxi/tree/master.svg?style=svg)](https://circleci.com/gh/henrygarner/duxi/tree/master)
+
 _Experimental_
 
 A Clojure library for specifying and executing Conducts.
