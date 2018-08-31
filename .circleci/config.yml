@@ -1,0 +1,18 @@
+version: 2
+jobs:
+  build:
+    working_directory: ~/henrygarner/duxi
+    environment:
+      LEIN_ROOT: nbd
+    docker:
+      - image: circleci/clojure:lein-2.8.1
+    steps:
+      - checkout
+      - restore_cache:
+          key: duxi-{{ checksum "project.clj" }}
+      - run: lein deps
+      - save_cache:
+          key: duxi-{{ checksum "project.clj" }} 
+          paths:
+            - ~/.m2
+      - run: lein test
