@@ -1,43 +1,110 @@
 (ns ductors.core
   (:require [clojure.algo.monads :as monad :refer [defmonad domonad]]
-            [ductors.ductors :refer [make-ductor]]))
+            [ductors.ductors :refer [make-ductor]]
+            [clojure.core :as core])
+  (:refer-clojure :exclude [vals key subseq filter update get assoc] :as core))
 
-(defn T
-  "Variadic Thrush combinator"
-  [& args]
-  (fn [f]
-    (apply f args)))
+(defn- thrush
+  [state f]
+  (f state))
+
+(defn- conj*
+  [handler f]
+  (fn
+    ([] (conj))
+    ([acc] (conj acc))
+    ([acc x] (conj acc x))
+    ([acc x f] (conj acc (handler x f)))))
+
+(defn- sequence*
+  [xf coll handler f]
+  (let [rf (xf (conj* handler f))]
+    (if (seq? coll)
+      (seq (rf (reduce (fn [acc x]
+                         (rf acc x f))
+                       (rf)
+                       coll)))
+      (rf (reduce (fn [acc x]
+                    (rf acc x f))
+                  (rf)
+                  coll)))))
 
 (defn duct
-  ([xform rf]
-   (T xform rf))
-  ([rf]
-   (T identity rf)))
+  "A duct is a lens over a transducer"
+  [xf]
+  (fn [handler]
+    (fn
+      ([coll]
+       (let [xf (comp xf (map handler))]
+         (if (seq? coll)
+           (sequence xf coll)
+           (into (empty coll) xf coll))))
+      ([coll f]
+       (sequence* xf coll handler f)))))
 
-(defmonad iter-m
-  [m-bind (fn [duct f]
-            (fn [f']
-              ((f (duct f')) f')))
-   m-result (fn [v]
-              (fn [f']
-                v))])
+(defn filter
+  [pred]
+  (fn [rf]
+    (fn
+      ([] (rf))
+      ([acc x]
+       (if (pred x)
+         (rf acc x)
+         acc))
+      ([acc x f]
+       (if (pred x)
+         (rf acc x f)
+         (rf acc x)))
+      ([acc] (rf acc)))))
 
-(defmacro letduct
-  "Create a duct by binding ducts together"
-  [specs & body]
-  `(domonad iter-m ~specs ~@body))
+(def vals
+  (fn [handler]
+    (fn
+      ([coll]
+       (handler (core/vals coll)))
+      ([coll f]
+       (persistent!
+        (reduce-kv
+         (fn [m k v] (assoc! m k (handler v f)))
+         (transient (empty coll)) coll))))))
 
-(defn conditionally
-  [f]
-  (fn [state x]
-    (cond-> x state f)))
+(def all
+  (fn [handler]
+    (fn
+      ([coll]
+       (let [xf (map handler)]
+         (if (seq? coll)
+           (sequence xf coll)
+           (into (empty coll) xf coll))))
+      ([coll f]
+       (let [xf (map #(handler % f))]
+         (if (seq? coll)
+           (sequence xf coll)
+           (into (empty coll) xf coll)))))))
 
-(defn deduce
-  ([duct f coll]
-   ((duct (conditionally f)) true coll))
-  ([duct coll]
-   (deduce duct identity coll)))
+(defn lens
+  [getter setter]
+  (fn [handler]
+    (fn
+      ([state]
+       (handler (getter state)))
+      ([state f]
+       (setter state #(handler % f))))))
 
-(defn ductor
-  [& ducts]
-  (apply comp (clojure.core/map make-ductor ducts)))
+(defn in
+  ([ks] (in ks nil))
+  ([ks default]
+   (lens (fn [state] (get-in state ks default))
+         (fn [state f] (update-in state ks f)))))
+
+(defn get
+  [lens state]
+  ((lens identity) state))
+
+(defn update
+  [lens f state]
+  ((lens thrush) state f))
+
+(defn assoc
+  [st v s]
+  (update st (constantly v) s))

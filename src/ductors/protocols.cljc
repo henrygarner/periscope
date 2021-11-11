@@ -25,10 +25,15 @@
 
 (defn f
   [xform rf coll]
-  (transduce xform (rf coll) coll))
+  (let [rf (cond-> rf
+             (satisfies? IdentityRf rf)
+             (rf coll))])
+  (transduce xform rf coll))
 
 (f (map inc) identity-rf [1 2 3 4])
 
 (f (map inc) identity-rf '(1 2 3 4))
 
 (f (map #(update % 1 inc)) identity-rf {:a 1 :b 2})
+
+

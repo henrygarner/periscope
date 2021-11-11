@@ -1,73 +1,45 @@
 (ns ductors.core-test
   (:require [clojure.test :refer :all]
-            [ductors.core :refer :all]
-            [ductors.ductors :as d]
+            [ductors.core :as sut]
             [ductors.reducers :as r]))
 
-(deftest ducts-can-be-nested
-  (is (= [9 18]
-         (deduce (comp (d/map (duct conj))
-                       (d/map (duct (map inc) +)))
-                 [[1 2 3] [4 5 6]]))))
+(deftest update-lens
+  (is (= [2 3 4]
+         (sut/update sut/all inc [1 2 3])))
+  (is (= {:a 2 :b 3 :c 4}
+         (sut/update sut/vals inc {:a 1 :b 2 :c 3})))
+  (is (= [{:a 2 :b 3} {:c 4 :d 5}]
+         (sut/update (comp sut/all sut/vals) inc
+                   [{:a 1 :b 2} {:c 3 :d 4}])))
+  (is (= {:a [2 3 4] :b [2 3 4]}
+         (sut/update (comp (sut/in [:a]) sut/all) inc
+                   {:a [1 2 3] :b [2 3 4]}))))
 
-(deftest ducts-can-be-defined-with-letduct
-  (let [d (d/map (letduct [total (duct +)
-                           result (duct (map #(/ % total)) conj)]
-                   result))]
-    (is (= [0 1/3 2/3]
-           (deduce d [0 1 2])))))
+(deftest get-lens
+  (is (= [1 2 3]
+         (sut/get sut/all [1 2 3])))
+  (is (= '(1 2 3)
+         (sut/get sut/vals {:a 1 :b 2 :c 3})))
+  (is (= ['(1 2) '(3 4)]
+         (sut/get (comp sut/all sut/vals)
+                  [{:a 1 :b 2} {:c 3 :d 4}])))
+  (is (= [1 2 3]
+         (sut/get (comp (sut/in [:a]) sut/all)
+                  {:a [1 2 3] :b [2 3 4]}))))
 
-(deftest it-transforms-data-structures
-  (testing "incrementing vals in map of maps"
-    (let [d (comp (d/map-vals (duct r/assoc))
-                  (d/map-vals (duct r/assoc)))]
-      (is (= {:a {:aa 2}, :b {:ba 0, :bb 3}}
-             (deduce d inc {:a {:aa 1} :b {:ba -1 :bb 2}})))))
-  
-  (testing "increments all even vals for :a in sequence of maps"
-    (let [d (d/map (duct conj))]
-      (is (= [{:a 1} {:a 3} {:a 5} {:a 3}]
-             (deduce d (fn [x] (update x :a #(cond-> % (even? %) inc)))
-                     [{:a 1} {:a 2} {:a 4} {:a 3}])))))
+(deftest get-duct
+  (is (= '(1 3 5 7 9)
+         (sut/get (sut/duct (sut/filter odd?)) (range 10))))
+  (is (= ['(0 2) '(0 2 4)]
+         (sut/get (comp (sut/duct (sut/filter (comp odd? count)))
+                        (sut/duct (sut/filter even?)))
+                  [(range 2) (range 3) (range 4) (range 5)]))))
 
-  (testing "retrieve every number divisible by 3 out of a sequence of sequences"
-    (let [d (comp (d/map (duct r/concat))
-                  (d/map (duct (filter #(zero? (mod % 3))) conj)))]
-      (is (= [3 3 18 6 12]
-             (deduce d [[1 2 3 4] [] [5 3 2 18] [2 4 6] [12]])))))
-
-  (testing "remove nils from a nested sequence"
-    (let [d (comp (d/map-vals (duct r/assoc))
-                  (d/map (duct (remove nil?) conj)))]
-      (is (= {:a [1 2 3]}
-             (deduce d {:a [1 2 nil 3 nil]})))))
-
-  (testing "transducers can filter values before reduction"
-    (let [d (comp (d/map (remove keyword?) (duct conj))
-                  (d/map (duct +)))]
-      (is (= [6 15]
-             (deduce d [:a [1 2 3] :b [4 5 6]])))))
-
-  (testing "append [:c :d] to every subsequence that has at least two even numbers"
-    (let [d (comp (d/map (duct conj))
-                  (d/when #(>= (count (filter even? %)) 2)))]
-      (is (= [[1 2 3 4 5 6 :c :d] [7 0 -1] [8 8 :c :d] []]
-             (deduce d #(concat % [:c :d]) [[1 2 3 4 5 6] [7 0 -1] [8 8] []]))))))
-
-(deftest assemblies-can-target-their-execution
-  (testing "increment only numbers in even length arrays"
-    (let [d (comp (d/map (duct conj))
-                  (d/when #(even? (count %)))
-                  (d/map (duct conj))
-                  (d/when number?))]
-      (is (= [[1 false 2] [4 5] [6 nil] [7 8 9 10]]
-             (deduce d inc [[1 false 2] [3 4] [5 nil] [6 7 8 9]])))))
-
-  (testing "predicates only affect whether bottom is applied"
-    (let [d (comp (d/map (duct concat))
-                  (d/when #(contains? % :a))
-                  (d/vals (duct concat))
-                  (d/map (duct conj)))]
-      (is (= [2 3 4 5 6 7 8 9 10 11 12 13]
-             (deduce d inc [{:a [1 2 3] :b [4 5 6]} {:c [8 9 10] :d [11 12 13]}]))))))
-
+(deftest update-duct
+  (is (= '(0 2 2 4 4 6 6 8 8 10)
+         (sut/update (sut/duct (sut/filter odd?)) inc (range 10))))
+  (is (= ['(0 1) '(1 1 3) '(0 1 2 3) '(1 1 3 3 5)]
+         (sut/update (comp (sut/duct (sut/filter (comp odd? count)))
+                           (sut/duct (sut/filter even?)))
+                     inc
+                     [(range 2) (range 3) (range 4) (range 5)]))))
