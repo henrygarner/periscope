@@ -43,3 +43,11 @@
                            (sut/duct (sut/filter even?)))
                      inc
                      [(range 2) (range 3) (range 4) (range 5)]))))
+
+(deftest map-duct
+  (is (= [2 3 4 5 6]
+         (sut/get (sut/duct (sut/map inc)) [1 2 3 4 5])))
+  (is (= [3 4 5 6 7]
+         (sut/update (sut/duct (sut/map inc)) inc [1 2 3 4 5])))
+  (is (= [1 1 1 1 1]
+         (sut/assoc (sut/duct (sut/map inc)) 1 [1 2 3 4 5]))))

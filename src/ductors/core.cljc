@@ -2,7 +2,7 @@
   (:require [clojure.algo.monads :as monad :refer [defmonad domonad]]
             [ductors.ductors :refer [make-ductor]]
             [clojure.core :as core])
-  (:refer-clojure :exclude [vals key subseq filter update get assoc] :as core))
+  (:refer-clojure :exclude [vals key subseq map filter remove update get assoc] :as core))
 
 (defn- thrush
   [state f]
@@ -35,7 +35,7 @@
   (fn [handler]
     (fn
       ([coll]
-       (let [xf (comp xf (map handler))]
+       (let [xf (comp xf (core/map handler))]
          (if (seq? coll)
            (sequence xf coll)
            (into (empty coll) xf coll))))
@@ -57,6 +57,19 @@
          (rf acc x)))
       ([acc] (rf acc)))))
 
+(def remove (comp filter complement))
+
+(defn map
+  [fx]
+  (fn [rf]
+    (fn
+      ([] (rf))
+      ([acc x]
+       (rf acc (fx x)))
+      ([acc x f]
+       (rf acc (fx x) f))
+      ([acc] (rf acc)))))
+
 (def vals
   (fn [handler]
     (fn
@@ -72,12 +85,12 @@
   (fn [handler]
     (fn
       ([coll]
-       (let [xf (map handler)]
+       (let [xf (core/map handler)]
          (if (seq? coll)
            (sequence xf coll)
            (into (empty coll) xf coll))))
       ([coll f]
-       (let [xf (map #(handler % f))]
+       (let [xf (core/map #(handler % f))]
          (if (seq? coll)
            (sequence xf coll)
            (into (empty coll) xf coll)))))))
