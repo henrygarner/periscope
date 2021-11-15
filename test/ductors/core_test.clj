@@ -35,6 +35,12 @@
                         (sut/duct (sut/filter even?)))
                   [(range 2) (range 3) (range 4) (range 5)]))))
 
+(deftest lens-xforms-are-compatible
+  (is (= '(1 3 5 7 9)
+         (sequence (sut/filter odd?) (range 10))))
+  (is (= '(1 2 3 4 5 6 7 8 9 10)
+         (sequence (sut/map inc) (range 10)))))
+
 (deftest update-duct
   (is (= '(0 2 2 4 4 6 6 8 8 10)
          (sut/update (sut/duct (sut/filter odd?)) inc (range 10))))

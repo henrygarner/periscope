@@ -9,25 +9,20 @@
   (f state))
 
 (defn- conj*
-  [handler f]
+  [handler]
   (fn
     ([] (conj))
     ([acc] (conj acc))
     ([acc x] (conj acc x))
     ([acc x f] (conj acc (handler x f)))))
 
-(defn- sequence*
-  [xf coll handler f]
-  (let [rf (xf (conj* handler f))]
-    (if (seq? coll)
-      (seq (rf (reduce (fn [acc x]
-                         (rf acc x f))
-                       (rf)
-                       coll)))
-      (rf (reduce (fn [acc x]
-                    (rf acc x f))
-                  (rf)
-                  coll)))))
+(defn- transduce*
+  [f xf rf coll]
+  (let [rf (xf rf)]
+    (rf (reduce (fn [acc x]
+                  (rf acc x f))
+                (rf)
+                coll))))
 
 (defn duct
   "A duct is a lens over a transducer"
@@ -40,35 +35,35 @@
            (sequence xf coll)
            (into (empty coll) xf coll))))
       ([coll f]
-       (sequence* xf coll handler f)))))
+       (if (seq? coll)
+         (seq (transduce* f xf (conj* handler) coll))
+         (transduce* f xf (conj* handler) coll))))))
 
-(defn filter
-  [pred]
-  (fn [rf]
-    (fn
-      ([] (rf))
-      ([acc x]
-       (if (pred x)
-         (rf acc x)
-         acc))
-      ([acc x f]
-       (if (pred x)
-         (rf acc x f)
-         (rf acc x)))
-      ([acc] (rf acc)))))
+(defn xform->lens
+  [xf f]
+  (fn [& args]
+    (fn [rf]
+      (let [rf' ((apply xf args) rf)]
+        (fn
+          ([] (rf'))
+          ([acc] (rf' acc))
+          ([acc x] (rf' acc x))
+          ([acc x f']
+           (apply f rf acc x f' args)))))))
+
+(def filter
+  (xform->lens core/filter
+               (fn [rf acc x f pred]
+                 (if (pred x)
+                   (rf acc x f)
+                   (rf acc x)))))
+
+(def map
+  (xform->lens core/map
+               (fn [rf acc x f fx]
+                 (rf acc (fx x) f))))
 
 (def remove (comp filter complement))
-
-(defn map
-  [fx]
-  (fn [rf]
-    (fn
-      ([] (rf))
-      ([acc x]
-       (rf acc (fx x)))
-      ([acc x f]
-       (rf acc (fx x) f))
-      ([acc] (rf acc)))))
 
 (def vals
   (fn [handler]
