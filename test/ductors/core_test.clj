@@ -57,3 +57,21 @@
          (sut/update (sut/duct (sut/map inc)) inc [1 2 3 4 5])))
   (is (= [1 1 1 1 1]
          (sut/assoc (sut/duct (sut/map inc)) 1 [1 2 3 4 5]))))
+
+(deftest nth
+  (is (= 0 (sut/get sut/first [0 1 2])))
+  (is (= 1 (sut/get sut/second [0 1 2])))
+  (is (= 2 (sut/get (sut/nth 2) [0 1 2])))
+  (is (= [0 2 2] (sut/update sut/second inc [0 1 2])))
+  (is (= [2 1 2] (sut/assoc sut/first 2 [0 1 2])))
+  (is (= 2 (sut/get sut/last [0 1 2])))
+  (is (= [0 1 0] (sut/assoc sut/last 0 [0 1 2]))))
+
+(deftest take
+  (is (= '(0 1 2) (sut/get (sut/duct (sut/take 3)) (range 10))))
+  (is (= '(1 2 3 3 4 5 6 7 8 9) (sut/update (sut/duct (sut/take 3)) inc (range 10))))
+  (is (= '(0 0 0 3 4 5 6 7 8 9) (sut/assoc (sut/duct (sut/take 3)) 0 (range 10)))))
+
+(deftest duct-composition
+  (is (= '(0 42 2 42 4 42 6 7 8 9) (sut/assoc (sut/duct (comp (sut/filter odd?) (sut/take 3))) 42 (range 10))))
+  (is (= '(0 42 2 3 4 5 6 7 8 9) (sut/assoc (sut/duct (comp (sut/take 3) (sut/filter odd?))) 42 (range 10)))))

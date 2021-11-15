@@ -65,6 +65,28 @@
 
 (def remove (comp filter complement))
 
+(defn take [n]
+  (fn [rf]
+    (let [nv (volatile! n)]
+      (fn
+        ([] (rf))
+        ([result] (rf result))
+        ([result input]
+         (let [n @nv
+               nn (vswap! nv dec)
+               result (if (pos? n)
+                        (rf result input)
+                        result)]
+           (if (not (pos? nn))
+             (ensure-reduced result)
+             result)))
+        ([result input f]
+         (let [n @nv
+               nn (if (= f identity) n (vswap! nv dec))]
+           (if (pos? n)
+             (rf result input f)
+             (rf result input identity))))))))
+
 (def vals
   (fn [handler]
     (fn
@@ -104,6 +126,24 @@
   ([ks default]
    (lens (fn [state] (get-in state ks default))
          (fn [state f] (update-in state ks f)))))
+
+(defn nth
+  [n]
+  (lens (fn [state]
+          (core/nth state n))
+        (fn [state f]
+          (core/update state n f))))
+
+(def first
+  (nth 0))
+
+(def second
+  (nth 1))
+
+(def last
+  (lens core/last
+        (fn [state f]
+          (core/update state (dec (count state)) f))))
 
 (defn get
   [lens state]
