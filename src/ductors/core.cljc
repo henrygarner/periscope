@@ -1,6 +1,10 @@
 (ns ductors.core
   (:require [clojure.core :as core])
-  (:refer-clojure :exclude [vals key subseq map filter remove update get assoc] ))
+  (:refer-clojure :exclude [vals key subseq map filter remove update get assoc]))
+
+(defn- thrush
+  [state f]
+  (f state))
 
 (def vals
   (fn [handler]

@@ -2,10 +2,6 @@
   (:require [clojure.core :as core])
   (:refer-clojure :exclude [vals key subseq map filter remove update get assoc]))
 
-(defn- thrush
-  [state f]
-  (f state))
-
 (defn- conj*
   [handler]
   (fn
