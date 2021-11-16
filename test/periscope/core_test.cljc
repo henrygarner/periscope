@@ -1,7 +1,6 @@
-(ns ductors.core-test
+(ns periscope.core-test
   (:require [clojure.test :refer :all]
-            [ductors.core :as sut]
-            [ductors.reducers :as r]))
+            [periscope.core :as sut]))
 
 (deftest update-lens
   (is (= [2 3 4]
@@ -27,7 +26,7 @@
          (sut/get (comp (sut/in [:a]) sut/all)
                   {:a [1 2 3] :b [2 3 4]}))))
 
-(deftest nth
+(deftest nth-test
   (is (= 0 (sut/get sut/first [0 1 2])))
   (is (= 1 (sut/get sut/second [0 1 2])))
   (is (= 2 (sut/get (sut/nth 2) [0 1 2])))

@@ -1,6 +1,6 @@
-(ns ductors.core
+(ns periscope.core
   (:require [clojure.core :as core])
-  (:refer-clojure :exclude [vals key subseq map filter remove update get assoc]))
+  (:refer-clojure :exclude [nth first second last vals key subseq map filter remove update get assoc]))
 
 (defn- thrush
   [state f]
@@ -31,7 +31,7 @@
            (sequence xf coll)
            (into (empty coll) xf coll)))))))
 
-(defn lens
+(defn scope
   [getter setter]
   (fn [handler]
     (fn
@@ -43,15 +43,15 @@
 (defn in
   ([ks] (in ks nil))
   ([ks default]
-   (lens (fn [state] (get-in state ks default))
-         (fn [state f] (update-in state ks f)))))
+   (scope (fn [state] (get-in state ks default))
+          (fn [state f] (update-in state ks f)))))
 
 (defn nth
   [n]
-  (lens (fn [state]
-          (core/nth state n))
-        (fn [state f]
-          (core/update state n f))))
+  (scope (fn [state]
+           (core/nth state n))
+         (fn [state f]
+           (core/update state n f))))
 
 (def first
   (nth 0))
@@ -60,18 +60,18 @@
   (nth 1))
 
 (def last
-  (lens core/last
-        (fn [state f]
-          (core/update state (dec (count state)) f))))
+  (scope core/last
+         (fn [state f]
+           (core/update state (dec (count state)) f))))
 
 (defn get
-  [lens state]
-  ((lens identity) state))
+  [scope state]
+  ((scope identity) state))
 
 (defn update
-  [lens f state]
-  ((lens thrush) state f))
+  [scope f state]
+  ((scope thrush) state f))
 
 (defn assoc
-  [st v s]
-  (update st (constantly v) s))
+  [scope v state]
+  (update scope (constantly v) state))

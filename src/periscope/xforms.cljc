@@ -1,6 +1,6 @@
-(ns ductors.ducts
+(ns periscope.xforms
   (:require [clojure.core :as core])
-  (:refer-clojure :exclude [vals key subseq map filter remove update get assoc]))
+  (:refer-clojure :exclude [vals key subseq map filter remove update get assoc take last]))
 
 (defn- conj*
   [handler]
@@ -18,22 +18,23 @@
                 (rf)
                 coll))))
 
-(defn duct
-  "A duct is a lens over a transducer"
-  [xf]
+(defn *>>
+  "The periscope composition operator"
+  [& xfs]
   (fn [handler]
-    (fn
-      ([coll]
-       (let [xf (comp xf (core/map handler))]
+    (let [xf (apply comp xfs)]
+      (fn
+        ([coll]
+         (let [xf (comp xf (core/map handler))]
+           (if (seq? coll)
+             (sequence xf coll)
+             (into (empty coll) xf coll))))
+        ([coll f]
          (if (seq? coll)
-           (sequence xf coll)
-           (into (empty coll) xf coll))))
-      ([coll f]
-       (if (seq? coll)
-         (seq (transduce* f xf (conj* handler) coll))
-         (transduce* f xf (conj* handler) coll))))))
+           (seq (transduce* f xf (conj* handler) coll))
+           (transduce* f xf (conj* handler) coll)))))))
 
-(defn xform->lens
+(defn xform->pform
   [xf f]
   (fn [& args]
     (fn [rf]
@@ -46,16 +47,16 @@
            (apply f rf acc x f' args)))))))
 
 (def filter
-  (xform->lens core/filter
-               (fn [rf acc x f pred]
-                 (if (pred x)
-                   (rf acc x f)
-                   (rf acc x identity)))))
+  (xform->pform core/filter
+                (fn [rf acc x f pred]
+                  (if (pred x)
+                    (rf acc x f)
+                    (rf acc x identity)))))
 
 (def map
-  (xform->lens core/map
-               (fn [rf acc x f fx]
-                 (rf acc (fx x) f))))
+  (xform->pform core/map
+                (fn [rf acc x f fx]
+                  (rf acc (fx x) f))))
 
 (def remove (comp filter complement))
 
