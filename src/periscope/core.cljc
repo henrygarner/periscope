@@ -1,6 +1,6 @@
 (ns periscope.core
   (:require [clojure.core :as core])
-  (:refer-clojure :exclude [nth first second last vals key subseq map filter remove update get assoc]))
+  (:refer-clojure :exclude [nth first second last vals key subseq map filter remove update get assoc rest]))
 
 (defn- thrush
   [state f]
@@ -64,14 +64,25 @@
          (fn [state f]
            (core/update state (dec (count state)) f))))
 
+(def rest
+  (scope (fn [state]
+           (if (seq? state)
+             (core/rest state)
+             (into (empty state) (core/rest state))))
+         (fn [state f]
+           (cond-> (into [(core/first state)] (core/map f) (core/rest state))
+             (seq? state)
+             seq))))
+
 (defn get
-  [scope state]
+  [state scope]
   ((scope identity) state))
 
 (defn update
-  [scope f state]
-  ((scope thrush) state f))
+  [state scope f & args]
+  (let [f #(apply f % args)]
+    ((scope thrush) state f)))
 
 (defn assoc
-  [scope v state]
-  (update scope (constantly v) state))
+  [state scope v]
+  (update state scope (constantly v)))
