@@ -1,8 +1,8 @@
 (ns periscope.xforms-test
-  (:require [periscope.xforms :refer [*>> map take filter last]]
+  (:require [periscope.xforms :refer [*>> map take drop filter last butlast]]
             [periscope.core :refer [get update assoc]]
             [clojure.test :refer :all])
-  (:refer-clojure :exclude [get update assoc map take filter last]))
+  (:refer-clojure :exclude [get update assoc map take drop filter last butlast]))
 
 (deftest get-periscope
   (is (= '(1 3 5 7 9)
@@ -43,6 +43,14 @@
   (is (= '(0 0 0 3 4 5 6 7 8 9)
          (assoc (range 10) (*>> (take 3)) 0))))
 
+(deftest drop-test
+  (is (= '(3 4 5 6 7 8 9)
+         (get (range 10) (*>> (drop 3)))))
+  (is (= '(0 1 2 4 5 6 7 8 9 10)
+         (update (range 10) (*>> (drop 3)) inc)))
+  (is (= '(0 1 2 0 0 0 0 0 0 0)
+         (assoc (range 10) (*>> (drop 3)) 0))))
+
 (deftest periscope-composition
   (is (= '(0 42 2 42 4 42 6 7 8 9)
          (assoc (range 10) (*>> (filter odd?) (take 3)) 42)))
@@ -50,3 +58,13 @@
          (assoc (range 10) (*>> (take 3) (filter odd?)) 42)))
   (is (= '(0 1 2 3 4 5 6 7 42 9)
          (assoc (range 10) (*>> (filter even?) last) 42))))
+
+(deftest butlast-test
+  (is (= [1 1 1 4]
+         (assoc [1 2 3 4] (*>> butlast) 1)))
+  (is (= [2 3 4 4]
+         (update [1 2 3 4] (*>> butlast) inc)))
+  (is (= [1 2 3]
+         (get [1 2 3 4] (*>> butlast))))
+  (is (= '(0 1 2 0 0 0 0 0 0 9)
+         (assoc (range 10) (*>> (drop 3) butlast) 0))))

@@ -1,6 +1,6 @@
 (ns periscope.xforms
   (:require [clojure.core :as core])
-  (:refer-clojure :exclude [vals key subseq map filter remove update get assoc take last]))
+  (:refer-clojure :exclude [vals key subseq map filter remove update get assoc take drop last butlast]))
 
 (defn- conj*
   [handler]
@@ -81,6 +81,49 @@
            (if (pos? n)
              (rf result input f)
              (rf result input nil))))))))
+
+(defn drop [n]
+  (fn [rf]
+    (let [nv (volatile! n)]
+      (fn
+        ([] (rf))
+        ([result] (rf result))
+        ([result input]
+         (let [n @nv]
+           (vswap! nv dec)
+           (if (pos? n)
+             result
+             (rf result input))))
+        ([result input f]
+         (let [n @nv]
+           (vswap! nv dec)
+           (if (pos? n)
+             (rf result input nil)
+             (rf result input f))))))))
+
+(defn butlast
+  [rf]
+  (let [prev-x (volatile! ::none)
+        prev-f (volatile! nil)]
+    (fn
+      ([] (rf))
+      ([acc]
+       (if @prev-f
+         (rf (rf acc @prev-x nil))
+         (rf acc)))
+      ([acc x]
+       (let [result (if (not= @prev-x ::none)
+                      (rf acc @prev-x)
+                      acc)]
+         (vreset! prev-x x)
+         result))
+      ([acc x f]
+       (let [result (if (not= @prev-x ::none)
+                      (rf acc @prev-x @prev-f)
+                      acc)]
+         (vreset! prev-x x)
+         (vreset! prev-f f)
+         result)))))
 
 (def last
   (fn [rf]
