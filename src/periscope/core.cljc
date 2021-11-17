@@ -1,10 +1,16 @@
 (ns periscope.core
   (:require [clojure.core :as core])
-  (:refer-clojure :exclude [nth first second last vals key subseq map filter remove update get assoc rest]))
+  (:refer-clojure :exclude [nth first second last vals key subseq map filter remove update get assoc rest take drop butlast]))
 
 (defn- thrush
   [state f]
   (f state))
+
+(defn- sequence-preserving
+  [xform coll]
+  (if (seq? coll)
+    (sequence xform coll)
+    (into (empty coll) xform coll)))
 
 (def vals
   (fn [handler]
@@ -40,6 +46,32 @@
       ([state f]
        (setter state #(handler % f))))))
 
+(defn take
+  [n]
+  (scope (fn [state]
+           (if (seq? state)
+             (core/take n state)
+             (subvec state 0 n)))
+         (fn [state f]
+           (let [[as bs] (core/split-at n state)]
+             (if (seq? state)
+               (concat (core/map f as) bs)
+               (-> (into (empty state) (core/map f) as)
+                   (into bs)))))))
+
+(defn drop
+  [n]
+  (scope (fn [state]
+           (if (seq? state)
+             (core/drop n state)
+             (subvec state n (count state))))
+         (fn [state f]
+           (let [[as bs] (core/split-at n state)]
+             (if (seq? state)
+               (concat as (core/map f bs))
+               (-> (into (empty state) as)
+                   (into (core/map f) bs)))))))
+
 (defn in
   ([ks] (in ks nil))
   ([ks default]
@@ -51,18 +83,42 @@
   (scope (fn [state]
            (core/nth state n))
          (fn [state f]
-           (core/update state n f))))
+           (if (seq? state)
+             (let [[as [b & bs]] (core/split-at n state)]
+               (-> (reduce conj!
+                           (-> (reduce conj! (transient []) as)
+                               (conj! (f b)))
+                           bs)
+                   (persistent!)
+                   (seq)))
+             (core/update state n f)))))
 
 (def first
-  (nth 0))
+  (scope core/first
+         (fn [state f]
+           (if (seq? state)
+             (cons (f (core/first state)) (core/rest state))
+             (core/update state 0 f)))))
 
 (def second
-  (nth 1))
+  (scope core/second
+         (fn [state f]
+           (if (seq? state)
+             (let [nxt (core/next state)]
+               (cons (core/first state)
+                     (cons (f (core/first nxt))
+                           (core/rest nxt))))
+             (core/update state 1 f)))))
 
 (def last
   (scope core/last
          (fn [state f]
-           (core/update state (dec (count state)) f))))
+           (if (seq? state)
+             (loop [ret [] s state]
+               (if (next s)
+                 (recur (conj ret (core/first s)) (next s))
+                 (seq (conj ret (f (core/first s))))))
+             (core/update state (dec (count state)) f)))))
 
 (def rest
   (scope (fn [state]
@@ -70,9 +126,25 @@
              (core/rest state)
              (into (empty state) (core/rest state))))
          (fn [state f]
-           (cond-> (into [(core/first state)] (core/map f) (core/rest state))
+           (cond-> (loop [ret (transient [(core/first state)]) s (core/rest state)]
+                     (if (seq s)
+                       (recur (conj! ret (f (core/first s))) (core/rest s))
+                       (persistent! ret)))
              (seq? state)
-             seq))))
+             (seq)))))
+
+(def butlast
+  (scope (fn [state]
+           (if (seq? state)
+             (core/butlast state)
+             (subvec state 0 (dec (count state)))))
+         (fn [state f]
+           (cond-> (loop [ret (transient []) s state]
+                     (if (next s)
+                       (recur (conj! ret (f (core/first s))) (next s))
+                       (persistent! (conj! ret (core/first s)))))
+             (seq? state)
+             (seq)))))
 
 (defn get
   [state scope]

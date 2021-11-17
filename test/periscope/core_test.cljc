@@ -1,8 +1,8 @@
 (ns periscope.core-test
   (:require [clojure.test :refer :all]
             [clojure.core :as core]
-            [periscope.core :refer [get update assoc first second nth last all vals in rest]])
-  (:refer-clojure :exclude [get update assoc first second nth last vals rest]))
+            [periscope.core :refer [get update assoc first second nth last all vals in rest drop take butlast]])
+  (:refer-clojure :exclude [get update assoc first second nth last vals rest drop take butlast]))
 
 (deftest update-scope
   (is (= [2 3 4]
@@ -46,3 +46,18 @@
             [:ci [[0 1] [2 3]] {:colour "blue" :position [0 1]}]
             [:ci [[0 1] [2 3]] {:colour "blue" :position [0 1]}]]
            (update spec (comp rest last) core/assoc :position [0 1])))))
+
+(deftest drop-test
+  (is (= '(2 3 4) (get (range 5) (drop 2))))
+  (is (= '(0 1 3 4 5) (update (range 5) (drop 2) inc)))
+  (is (= '(0 1 0 0 0) (assoc  (range 5) (drop 2) 0))))
+
+(deftest take-test
+  (is (= '(0 1) (get (range 5) (take 2))))
+  (is (= '(1 2 2 3 4) (update (range 5) (take 2) inc)))
+  (is (= '(0 0 2 3 4) (assoc  (range 5) (take 2) 0))))
+
+(deftest butlast-test
+  (is (= '(0 1 2 3) (get (range 5) butlast)))
+  (is (= '(1 2 3 4 4) (update (range 5) butlast inc)))
+  (is (= '(0 0 0 0 4) (assoc  (range 5) butlast 0))))
