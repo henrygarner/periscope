@@ -8,7 +8,7 @@
     ([] (conj))
     ([acc] (conj acc))
     ([acc x] (conj acc x))
-    ([acc x f] (conj acc (handler x f)))))
+    ([acc x f] (conj acc (handler x (or f identity))))))
 
 (defn- transduce*
   [f xf rf coll]
@@ -51,7 +51,7 @@
                 (fn [rf acc x f pred]
                   (if (pred x)
                     (rf acc x f)
-                    (rf acc x identity)))))
+                    (rf acc x nil)))))
 
 (def map
   (xform->pform core/map
@@ -77,10 +77,10 @@
              result)))
         ([result input f]
          (let [n @nv
-               nn (if (= f identity) n (vswap! nv dec))]
+               nn (if f (vswap! nv dec) n)]
            (if (pos? n)
              (rf result input f)
-             (rf result input identity))))))))
+             (rf result input nil))))))))
 
 (def last
   (fn [rf]
@@ -96,17 +96,17 @@
                        (rf acc @last))
                      acc)
                acc (reduce (fn [acc x]
-                             (rf acc x identity))
+                             (rf acc x nil))
                            acc @buffer)]
            (rf acc)))
         ([acc x]
          (vreset! last x)
          acc)
         ([acc x f]
-         (if (not= f identity)
-           (let [acc (if @last (rf acc @last identity) acc)
+         (if f
+           (let [acc (if @last (rf acc @last nil) acc)
                  acc (reduce (fn [acc x]
-                               (rf acc x identity)) acc @buffer)]
+                               (rf acc x nil)) acc @buffer)]
              (vreset! buffer [])
              (vreset! last x)
              (vreset! fx f)
