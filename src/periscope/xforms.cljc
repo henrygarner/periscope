@@ -1,6 +1,6 @@
 (ns periscope.xforms
   (:require [clojure.core :as core])
-  (:refer-clojure :exclude [vals key subseq map filter remove update get assoc take drop last butlast]))
+  (:refer-clojure :exclude [vals key subseq map filter remove update get assoc take drop last butlast cat]))
 
 (defn- conj*
   [handler]
@@ -157,3 +157,13 @@
            (do
              (vswap! buffer conj x)
              acc)))))))
+
+(defn cat
+  [rf]
+  (fn
+    ([] (rf))
+    ([result] (rf result))
+    ([result input]
+     (reduce rf result input))
+    ([result input f]
+     (reduce #(rf %1 %2 f) result input))))
