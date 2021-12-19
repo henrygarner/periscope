@@ -1,6 +1,6 @@
 (ns periscope.core
   (:require [clojure.core :as core])
-  (:refer-clojure :exclude [nth first second last vals key subseq map filter remove update get assoc rest take drop butlast]))
+  (:refer-clojure :exclude [nth first second last vals key subseq map filter remove update get assoc rest take drop butlast constantly]))
 
 (defn- thrush
   [state f]
@@ -72,11 +72,25 @@
                (-> (into (empty state) as)
                    (into (core/map f) bs)))))))
 
-(defn in
-  ([ks] (in ks nil))
-  ([ks default]
-   (scope (fn [state] (get-in state ks default))
-          (fn [state f] (update-in state ks f)))))
+(defmacro in
+  [ks]
+  `(fn* ~'[handler]
+        (fn* (~'[state]
+              ~(reduce (fn [coll k]
+                         (list `core/get coll k))
+                       'state
+                       ks))
+             (~'[state f]
+              ~(let [syms (into ['state] (repeatedly (count ks) gensym))
+                     symsr (reverse syms)]
+                 `(let ~(vec (reduce (fn [coll [[sa sb] k]]
+                                       (conj (conj coll sb) (list `core/get sa k)))
+                                     []
+                                     (core/map vector (partition 2 1 syms) ks)))
+                    ~(reduce (fn [coll [s k]]
+                               (list `core/assoc s k coll))
+                             (list 'handler (core/first symsr) 'f)
+                             (core/map vector (core/rest symsr) (reverse ks)))))))))
 
 (defn nth
   [n]
@@ -146,6 +160,21 @@
              (seq? state)
              (seq)))))
 
+(defn constantly [v]
+  (fn
+    ([] v)
+    ([a] v)
+    ([a b] v)
+    ([a b c] v)
+    ([a b c d] v)
+    ([a b c d e] v)
+    ([a b c d e f] v)
+    ([a b c d e f g] v)
+    ([a b c d e f g h] v)
+    ([a b c d e f g h i] v)
+    ([a b c d e f g h i j] v)
+    ([a b c d e f g h i j & ks] v)))
+
 (defn get
   [state scope]
   ((scope identity) state))
@@ -157,4 +186,4 @@
 
 (defn assoc
   [state scope v]
-  (update state scope (constantly v)))
+  ((scope thrush) state (constantly v)))
