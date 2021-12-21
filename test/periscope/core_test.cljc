@@ -61,3 +61,28 @@
   (is (= '(0 1 2 3) (get (range 5) butlast)))
   (is (= '(1 2 3 4 4) (update (range 5) butlast inc)))
   (is (= '(0 0 0 0 4) (assoc  (range 5) butlast 0))))
+
+(deftest last-test
+  (is (= 4 (get (range 5) last)))
+  (is (= '(0 1 2 3 5) (update (range 5) last inc)))
+  (is (= '(0 1 2 3 0) (assoc  (range 5) last 0))))
+
+(deftest rest-test
+  (is (= '(1 2 3 4) (get (range 5) rest)))
+  (is (= '(0 2 3 4 5) (update (range 5) rest inc)))
+  (is (= '(0 1 1 1 1) (assoc  (range 5) rest 1))))
+
+(deftest all-test
+  (is (= '(0 1 2 3 4) (get (range 5) all)))
+  (is (= '(1 2 3 4 5) (update (range 5) all inc)))
+  (is (= '(0 0 0 0 0) (assoc  (range 5) all 0))))
+
+(deftest vals-test
+  (is (= '(1 2 3) (get {:a 1 :b 2 :c 3} vals)))
+  (is (= {:a 2 :b 3 :c 4} (update {:a 1 :b 2 :c 3} vals inc)))
+  (is (= {:a 0 :b 0 :c 0} (assoc {:a 1 :b 2 :c 3} vals 0))))
+
+(deftest in-test
+  (is (= 1 (get {:a {:b {:c 1}}} (in [:a :b :c]))))
+  (is (= {:a {:b {:c 2}}} (update {:a {:b {:c 1}}} (in [:a :b :c]) inc)))
+  (is (= {:a {:b {:c 0}}} (assoc {:a {:b {:c 1}}} (in [:a :b :c]) 0))))
