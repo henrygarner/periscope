@@ -2,6 +2,8 @@
 
 [![CircleCI](https://circleci.com/gh/henrygarner/periscope/tree/master.svg?style=svg)](https://circleci.com/gh/henrygarner/periscope/tree/master)
 
+[![Clojars Project](https://img.shields.io/clojars/v/org.clojars.henrygarner/periscope.svg)](https://clojars.org/org.clojars.henrygarner/periscope)
+
 Generalized, composable & fast `get`, `assoc` & `update` with transducers.
 
 ## References
