@@ -2,11 +2,12 @@
 
 [![CircleCI](https://circleci.com/gh/henrygarner/periscope/tree/master.svg?style=svg)](https://circleci.com/gh/henrygarner/periscope/tree/master)
 
-Generalised `get`, `assoc` & `update` with transducers.
+Generalized, composable & fast `get`, `assoc` & `update` with transducers.
 
 ## References
 
 Scope abstraction influenced by [lentes](https://github.com/funcool/lentes).
+Motivation and optimisation influenced by [specter](https://github.com/redplanetlabs/specter).
 
 ## License
 

@@ -2,6 +2,8 @@
   (:require [clojure.core :as core])
   (:refer-clojure :exclude [nth first second last vals key subseq map filter remove update get assoc rest take drop butlast constantly]))
 
+(set! clojure.core/*warn-on-reflection* true)
+
 (defn- thrush
   [state f]
   (f state))
@@ -12,16 +14,73 @@
     (sequence xform coll)
     (into (empty coll) xform coll)))
 
+(defprotocol PMapMapper
+  (map-vals [this f])
+  (map-keys [this f]))
+
+(extend-protocol PMapMapper
+  nil
+  (map-vals [coll f] nil)
+  (map-keys [coll f] nil)
+  clojure.lang.PersistentArrayMap
+  (map-vals [^clojure.lang.PersistentArrayMap coll f]
+    (let [k-it (.keyIterator coll)
+          v-it (.valIterator coll)
+          array (object-array (* 2 (.count coll)))]
+      (loop [i 0]
+        (if (.hasNext k-it)
+          (let [k (.next k-it)
+                v (.next v-it)
+                v' (f v)]
+            (aset array i k)
+            (aset array (inc i) v')
+            (recur (+ i 2)))))
+      (clojure.lang.PersistentArrayMap. array)))
+  (map-keys [^clojure.lang.PersistentArrayMap coll f]
+    (let [k-it (.keyIterator coll)
+          v-it (.valIterator coll)
+          array (object-array (* 2 (.count coll)))]
+      (loop [i 0]
+        (if (.hasNext k-it)
+          (let [k (.next k-it)
+                v (.next v-it)
+                k' (f k)]
+            (aset array i k')
+            (aset array (inc i) v)
+            (recur (+ i 2)))))
+      (clojure.lang.PersistentArrayMap. array)))
+  clojure.lang.PersistentHashMap
+  (map-vals [^clojure.lang.PersistentHashMap coll f]
+    (let [coll' (transient clojure.lang.PersistentHashMap/EMPTY)]
+      (-> (reduce-kv (fn [m k v] (assoc! m k (f v))) coll' coll)
+          (persistent!))))
+  (map-keys [^clojure.lang.PersistentHashMap coll f]
+    (let [coll' (transient clojure.lang.PersistentHashMap/EMPTY)]
+      (-> (reduce-kv (fn [m k v] (assoc! m (f k) v)) coll' coll)
+          (persistent!))))
+  Object
+  (map-vals [coll f]
+    (let [coll' (empty coll)]
+      (reduce-kv (fn [m k v] (assoc! m k (f v))) coll' coll)))
+  (map-keys [coll f]
+    (let [coll' (empty coll)]
+      (reduce-kv (fn [m k v] (assoc! m (f k) v)) coll' coll))))
+
 (def vals
   (fn [handler]
     (fn
       ([coll]
        (handler (core/vals coll)))
       ([coll f]
-       (persistent!
-        (reduce-kv
-         (fn [m k v] (assoc! m k (handler v f)))
-         (transient (empty coll)) coll))))))
+       (map-vals coll #(handler % f))))))
+
+(def keys
+  (fn [handler]
+    (fn
+      ([coll]
+       (handler (core/keys coll)))
+      ([coll f]
+       (map-keys coll #(handler % f))))))
 
 (def all
   (fn [handler]
@@ -180,9 +239,20 @@
   ((scope identity) state))
 
 (defn update
-  [state scope f & args]
-  (let [f #(apply f % args)]
-    ((scope thrush) state f)))
+  ([state scope f]
+   ((scope thrush) state f))
+  ([state scope f a]
+   ((scope thrush) state #(f % a)))
+  ([state scope f a b]
+   ((scope thrush) state #(f % a b)))
+  ([state scope f a b c]
+   ((scope thrush) state #(f % a b c)))
+  ([state scope f a b c d]
+   ((scope thrush) state #(f % a b c d)))
+  ([state scope f a b c d e]
+   ((scope thrush) state #(f % a b c d e)))
+  ([state scope f a b c d e & args]
+   ((scope thrush) state #(apply f % a b c d e args))))
 
 (defn assoc
   [state scope v]

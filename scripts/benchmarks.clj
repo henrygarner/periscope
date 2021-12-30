@@ -29,16 +29,56 @@
            (compare-benchmark ~afn-map)
            (println "\n********************************\n"))))))
 
-(let [data {:a {:b {:c 1}}}
-      p (s/comp-paths :a :b :c)]
-  (run-benchmark "get value in nested map"
-                 (get-in data [:a :b :c])
-                 (s/select-first [:a :b :c] data)
-                 (s/compiled-select-any p data)
-                 (c/get data (c/in [:a :b :c]))))
+ (let [data {:a {:b {:c 1}}}
+       p (s/comp-paths :a :b :c)]
+   (run-benchmark "get value in nested map"
+                  (get-in data [:a :b :c])
+                  (s/select-first [:a :b :c] data)
+                  (s/compiled-select-any p data)
+                  (c/get data (c/in [:a :b :c]))))
 
-(let [data {:a {:b {:c 1}}}]
-  (run-benchmark "set value in nested map"
-                 (assoc-in data [:a :b :c] 1)
-                 (s/setval [:a :b :c] 1 data)
-                 (c/assoc data (c/in [:a :b :c]) 1)))
+ (let [data {:a {:b {:c 1}}}]
+   (run-benchmark "set value in nested map"
+                  (assoc-in data [:a :b :c] 1)
+                  (s/setval [:a :b :c] 1 data)
+                  (c/assoc data (c/in [:a :b :c]) 1)))
+
+ (let [data {:a {:b {:c 1}}}]
+   (run-benchmark "update value in nested map"
+                  (update-in data [:a :b :c] inc)
+                  (s/transform [:a :b :c] inc data)
+                  (c/update data (c/in [:a :b :c]) inc)))
+
+ (let [data '(1 2 3 4 5)]
+   (run-benchmark "transform values of a list"
+                  (s/transform s/ALL inc data)
+                  (doall (sequence (map inc) data))
+                  (reverse (into '() (map inc) data))
+                  (c/update data c/all inc)))
+
+(let [data {:a 1 :b 2 :c 3 :d 4}]
+  (run-benchmark "transform values of a small map"
+                 (into {} (for [[k v] data] [k (inc v)]))
+                 (reduce-kv (fn [m k v] (assoc m k (inc v))) {} data)
+                 (persistent! (reduce-kv (fn [m k v] (assoc! m k (inc v))) (transient {}) data))
+                 (reduce-kv (fn [m k v] (assoc m k (inc v))) (empty data) data)
+                 (s/transform [s/ALL s/LAST] inc data)
+                 (s/transform s/MAP-VALS inc data)
+                 (zipmap (keys data) (map inc (vals data)))
+                 (into {} (map (fn [e] [(key e) (inc (val e))]) data))
+                 (into {} (map (fn [e] [(key e) (inc (val e))])) data)
+                 (c/update data c/vals inc)))
+
+(let [data (->> (for [i (range 1000)] [i i]) (into {}))]
+  (run-benchmark "transform values of large map"
+                 (into {} (for [[k v] data] [k (inc v)]))
+                 (reduce-kv (fn [m k v] (assoc m k (inc v))) {} data)
+                 (persistent! (reduce-kv (fn [m k v] (assoc! m k (inc v))) (transient {}) data))
+                 (persistent! (reduce-kv (fn [m k v] (assoc! m k (inc v))) (transient clojure.lang.PersistentHashMap/EMPTY) data))
+                 (reduce-kv (fn [m k v] (assoc m k (inc v))) (empty data) data)
+                 (s/transform [s/ALL s/LAST] inc data)
+                 (s/transform s/MAP-VALS inc data)
+                 (zipmap (keys data) (map inc (vals data)))
+                 (into {} (map (fn [e] [(key e) (inc (val e))]) data))
+                 (into {} (map (fn [e] [(key e) (inc (val e))])) data)
+                 (c/update data c/vals inc)))
