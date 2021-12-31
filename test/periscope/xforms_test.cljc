@@ -1,7 +1,7 @@
 (ns periscope.xforms-test
   (:require [periscope.xforms :refer [*>> map take drop filter last butlast]]
             [periscope.core :refer [get update assoc]]
-            [clojure.test :refer :all])
+            [clojure.test :refer [deftest is]])
   (:refer-clojure :exclude [get update assoc map take drop filter last butlast]))
 
 (deftest get-periscope

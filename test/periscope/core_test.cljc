@@ -1,7 +1,9 @@
 (ns periscope.core-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is]]
             [clojure.core :as core]
-            [periscope.core :refer [get update assoc first second nth last all vals in rest drop take butlast]])
+            #?(:clj [periscope.core :refer [get update assoc first second nth last all vals rest drop take butlast in]])
+            #?(:cljs [periscope.core :refer [get update assoc first second nth last all vals rest drop take butlast]
+                      :refer-macros [in]]))
   (:refer-clojure :exclude [get update assoc first second nth last vals rest drop take butlast]))
 
 (deftest update-scope

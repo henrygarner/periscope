@@ -1,5 +1,5 @@
 (ns periscope.api-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is testing]]
             [periscope.core :as c]
             [periscope.xforms :as x]))
 

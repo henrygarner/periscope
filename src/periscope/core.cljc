@@ -1,6 +1,6 @@
 (ns periscope.core
   (:require [clojure.core :as core])
-  (:refer-clojure :exclude [nth first second last vals key subseq map filter remove update get assoc rest take drop butlast constantly]))
+  (:refer-clojure :exclude [nth first second last vals key subseq map filter remove update get assoc rest take drop butlast constantly select-keys keys]))
 
 (set! clojure.core/*warn-on-reflection* true)
 
@@ -22,49 +22,65 @@
   nil
   (map-vals [coll f] nil)
   (map-keys [coll f] nil)
-  clojure.lang.PersistentArrayMap
-  (map-vals [^clojure.lang.PersistentArrayMap coll f]
-    (let [k-it (.keyIterator coll)
-          v-it (.valIterator coll)
-          array (object-array (* 2 (.count coll)))]
-      (loop [i 0]
-        (if (.hasNext k-it)
-          (let [k (.next k-it)
-                v (.next v-it)
-                v' (f v)]
-            (aset array i k)
-            (aset array (inc i) v')
-            (recur (+ i 2)))))
-      (clojure.lang.PersistentArrayMap. array)))
-  (map-keys [^clojure.lang.PersistentArrayMap coll f]
-    (let [k-it (.keyIterator coll)
-          v-it (.valIterator coll)
-          array (object-array (* 2 (.count coll)))]
-      (loop [i 0]
-        (if (.hasNext k-it)
-          (let [k (.next k-it)
-                v (.next v-it)
-                k' (f k)]
-            (aset array i k')
-            (aset array (inc i) v)
-            (recur (+ i 2)))))
-      (clojure.lang.PersistentArrayMap. array)))
-  clojure.lang.PersistentHashMap
-  (map-vals [^clojure.lang.PersistentHashMap coll f]
-    (let [coll' (transient clojure.lang.PersistentHashMap/EMPTY)]
-      (-> (reduce-kv (fn [m k v] (assoc! m k (f v))) coll' coll)
-          (persistent!))))
-  (map-keys [^clojure.lang.PersistentHashMap coll f]
-    (let [coll' (transient clojure.lang.PersistentHashMap/EMPTY)]
-      (-> (reduce-kv (fn [m k v] (assoc! m (f k) v)) coll' coll)
-          (persistent!))))
-  Object
+
+  #?(:clj clojure.lang.PersistentArrayMap)
+  #?(:clj (map-vals [^clojure.lang.PersistentArrayMap coll f]
+                    (let [k-it (.keyIterator coll)
+                          v-it (.valIterator coll)
+                          array (object-array (* 2 (.count coll)))]
+                      (loop [i 0]
+                        (if (.hasNext k-it)
+                          (let [k (.next k-it)
+                                v (.next v-it)
+                                v' (f v)]
+                            (aset array i k)
+                            (aset array (inc i) v')
+                            (recur (+ i 2)))))
+                      (clojure.lang.PersistentArrayMap. array))))
+  #?(:clj (map-keys [^clojure.lang.PersistentArrayMap coll f]
+                    (let [k-it (.keyIterator coll)
+                          v-it (.valIterator coll)
+                          array (object-array (* 2 (.count coll)))]
+                      (loop [i 0]
+                        (if (.hasNext k-it)
+                          (let [k (.next k-it)
+                                v (.next v-it)
+                                k' (f k)]
+                            (aset array i k')
+                            (aset array (inc i) v)
+                            (recur (+ i 2)))))
+                      (clojure.lang.PersistentArrayMap. array))))
+  #?(:cljs cljs.core/PersistentArrayMap)
+  #?(:cljs (map-vals [coll f]
+                     (let [coll' (empty coll)]
+                       (reduce-kv (fn [m k v] (core/assoc m k (f v))) coll' coll))))
+  #?(:cljs (map-keys [coll f]
+                     (let [coll' (empty coll)]
+                       (reduce-kv (fn [m k v] (core/assoc m (f k) v)) coll' coll))))
+  #?(:clj clojure.lang.PersistentHashMap :cljs cljs.core.PersistentHashMap)
+  #?(:clj (map-vals [^clojure.lang.PersistentHashMap coll f]
+                    (let [coll' (transient clojure.lang.PersistentHashMap/EMPTY)]
+                      (-> (reduce-kv (fn [m k v] (core/assoc! m k (f v))) coll' coll)
+                          (persistent!)))))
+  #?(:clj (map-keys [^clojure.lang.PersistentHashMap coll f]
+                    (let [coll' (transient clojure.lang.PersistentHashMap/EMPTY)]
+                      (-> (reduce-kv (fn [m k v] (core/assoc! m (f k) v)) coll' coll)
+                          (persistent!)))))
+  #?(:cljs (map-vals [^cljs.core.PersistentHashMap p coll f]
+                    (let [coll' (transient cljs.core.PersistentHashMap.EMPTY)]
+                      (-> (reduce-kv (fn [m k v] (core/assoc! m k (f v))) coll' coll)
+                          (persistent!)))))
+  #?(:cljs (map-keys [^clojure.lang.PersistentHashMap coll f]
+                    (let [coll' (transient cljs.core.PersistentHashMap.EMPTY)]
+                      (-> (reduce-kv (fn [m k v] (core/assoc! m (f k) v)) coll' coll)
+                          (persistent!)))))
+  #?(:clj Object :cljs default)
   (map-vals [coll f]
     (let [coll' (empty coll)]
-      (reduce-kv (fn [m k v] (assoc! m k (f v))) coll' coll)))
+      (reduce-kv (fn [m k v] (core/assoc m k (f v))) coll' coll)))
   (map-keys [coll f]
     (let [coll' (empty coll)]
-      (reduce-kv (fn [m k v] (assoc! m (f k) v)) coll' coll))))
+      (reduce-kv (fn [m k v] (core/assoc m (f k) v)) coll' coll))))
 
 (def vals
   (fn [handler]

@@ -3,4 +3,8 @@
                                     criterium/criterium {:mvn/version "0.4.6"}}}
            :test-clj {:extra-deps {lambdaisland/kaocha {:mvn/version "1.0.732"}
                                    lambdaisland/kaocha-junit-xml {:mvn/version "0.0.76"}}
-                      :extra-paths ["test"]}}}
+                      :extra-paths ["test"]}
+           :test-chrome  {:extra-paths ["test" "cljs-test-runner-out/gen"]
+                          :extra-deps  {olical/cljs-test-runner   {:mvn/version "3.7.0" :exclusions [org.clojure/clojurescript]}
+                                        org.clojure/clojurescript {:mvn/version "1.10.764"}}
+                          :main-opts   ["-m" "cljs-test-runner.main" "-c" "test/cljs-test-opts.edn" "-x" "chrome-headless"]}}}
