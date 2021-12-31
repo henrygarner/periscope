@@ -1,0 +1,6 @@
+{:paths ["src"]
+ :aliases {:benchmark {:extra-deps {com.rpl/specter {:mvn/version "1.1.3"}
+                                    criterium/criterium {:mvn/version "0.4.6"}}}
+           :test-clj {:extra-deps {lambdaisland/kaocha {:mvn/version "1.0.732"}
+                                   lambdaisland/kaocha-junit-xml {:mvn/version "0.0.76"}}
+                      :extra-paths ["test"]}}}
