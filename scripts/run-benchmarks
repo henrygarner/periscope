@@ -1,3 +1,3 @@
 #!/bin/bash
 
-clojure -A:benchmark scripts/benchmarks.clj
+clojure -M:benchmark scripts/benchmarks.clj
