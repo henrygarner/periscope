@@ -2,7 +2,7 @@
   (:require [clojure.core :as core])
   (:refer-clojure :exclude [nth first second last vals key subseq map filter remove update get assoc rest take drop butlast constantly select-keys keys]))
 
-(set! clojure.core/*warn-on-reflection* true)
+#?(:clj (set! clojure.core/*warn-on-reflection* true))
 
 (defn- thrush
   [state f]
@@ -66,14 +66,14 @@
                     (let [coll' (transient clojure.lang.PersistentHashMap/EMPTY)]
                       (-> (reduce-kv (fn [m k v] (core/assoc! m (f k) v)) coll' coll)
                           (persistent!)))))
-  #?(:cljs (map-vals [^cljs.core.PersistentHashMap p coll f]
-                    (let [coll' (transient cljs.core.PersistentHashMap.EMPTY)]
-                      (-> (reduce-kv (fn [m k v] (core/assoc! m k (f v))) coll' coll)
-                          (persistent!)))))
-  #?(:cljs (map-keys [^clojure.lang.PersistentHashMap coll f]
-                    (let [coll' (transient cljs.core.PersistentHashMap.EMPTY)]
-                      (-> (reduce-kv (fn [m k v] (core/assoc! m (f k) v)) coll' coll)
-                          (persistent!)))))
+  #?(:cljs (map-vals [coll f]
+                     (let [coll' (transient cljs.core.PersistentHashMap.EMPTY)]
+                       (-> (reduce-kv (fn [m k v] (core/assoc! m k (f v))) coll' coll)
+                           (persistent!)))))
+  #?(:cljs (map-keys [coll f]
+                     (let [coll' (transient cljs.core.PersistentHashMap.EMPTY)]
+                       (-> (reduce-kv (fn [m k v] (core/assoc! m (f k) v)) coll' coll)
+                           (persistent!)))))
   #?(:clj Object :cljs default)
   (map-vals [coll f]
     (let [coll' (empty coll)]
